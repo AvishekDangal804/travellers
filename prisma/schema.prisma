@@ -1,0 +1,481 @@
+// TrailLink Nepal — Prisma schema
+//
+// Database: PostgreSQL (required for deployment — Vercel's filesystem is
+// ephemeral, so a local SQLite file can't be used in production). "Enum-like"
+// fields are intentionally represented as `String` (validated at the
+// application layer via Zod — see lib/validation and types/enums.ts) and
+// list-like data as `Json`; both are valid under PostgreSQL too, so no other
+// schema changes were needed for this switch.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & Profiles
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  name          String
+  image         String?
+  role          String    @default("HIKER") // HIKER | GUIDE | ADMIN
+  status        String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  hikerProfile HikerProfile?
+  guideProfile GuideProfile?
+
+  hikesHosted      Hike[]            @relation("HikeHost")
+  hikeParticipants HikeParticipant[]
+
+  adventureMatches      AdventureMatch[]
+  organizedGroups       AdventureGroup[]       @relation("GroupOrganizer")
+  adventureGroupMembers AdventureGroupMember[]
+
+  conversations ConversationParticipant[]
+  messages      Message[]
+
+  bookings Booking[]
+
+  reviewsWritten Review[] @relation("ReviewAuthor")
+
+  favorites     Favorite[]
+  notifications Notification[]
+
+  reportsFiled Report[] @relation("Reporter")
+
+  blocksMade    Block[] @relation("Blocker")
+  blocksAgainst Block[] @relation("Blocked")
+
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+}
+
+model HikerProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                 String?
+  location            String?
+  experienceLevel     String   @default("BEGINNER") // BEGINNER | INTERMEDIATE | ADVANCED
+  preferredDifficulty String   @default("EASY") // EASY | MODERATE | CHALLENGING | STRENUOUS
+  interests           Json     @default("[]") // string[]
+  badges              Json     @default("[]") // string[]
+  ageRange            String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model GuideProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                 String?
+  location            String?
+  experienceYears     Int      @default(0)
+  languages           Json     @default("[]") // string[]
+  specialties         Json     @default("[]") // string[]
+  destinationsCovered Json     @default("[]") // destination slugs (string[])
+  pricePerDay         Int      @default(0) // NPR whole rupees
+  currency            String   @default("NPR")
+  verificationStatus  String   @default("PENDING") // PENDING | VERIFIED | REJECTED
+  tripsCompleted      Int      @default(0)
+  ratingAvg           Float    @default(0)
+  ratingCount         Int      @default(0)
+  gallery             Json     @default("[]") // string[] image URLs
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  verification GuideVerification?
+  availability Availability[]
+  bookings     Booking[]
+
+  @@index([verificationStatus])
+}
+
+model GuideVerification {
+  id                    String       @id @default(cuid())
+  guideProfileId        String       @unique
+  guideProfile          GuideProfile @relation(fields: [guideProfileId], references: [id], onDelete: Cascade)
+  fullName              String
+  idType                String
+  idNumber              String
+  experienceDescription String
+  certifications        Json         @default("[]") // string[]
+  documents             Json         @default("[]") // string[] — internal-only, never exposed via public API
+  emergencyContactName  String
+  emergencyContactPhone String
+  languages             Json         @default("[]")
+  specialties           Json         @default("[]")
+  status                String       @default("PENDING") // PENDING | VERIFIED | REJECTED
+  reviewNote            String?
+  reviewedById          String?
+  submittedAt           DateTime     @default(now())
+  reviewedAt            DateTime?
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Destinations & Trails
+// ---------------------------------------------------------------------------
+
+model Destination {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  region       String
+  summary      String
+  description  String
+  difficulty   String // EASY | MODERATE | CHALLENGING | STRENUOUS
+  durationDays Int
+  elevationM   Int
+  bestSeason   String
+  budgetMinUsd Int
+  budgetMaxUsd Int
+  latitude     Float
+  longitude    Float
+  heroImage    String
+  gallery      Json     @default("[]") // string[]
+  highlights   Json     @default("[]") // string[]
+  safetyInfo   String   @default("")
+  ratingAvg    Float    @default(0)
+  ratingCount  Int      @default(0)
+  popularity   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  itinerary ItineraryDay[]
+  trail     Trail?
+  hikes     Hike[]
+
+  @@index([region])
+  @@index([difficulty])
+}
+
+model ItineraryDay {
+  id             String      @id @default(cuid())
+  destinationId  String
+  destination    Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  day            Int
+  title          String
+  description    String
+  distanceKm     Float?
+  elevationGainM Int?
+
+  @@index([destinationId])
+}
+
+model Trail {
+  id             String      @id @default(cuid())
+  destinationId  String      @unique
+  destination    Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  meetingPoint   String
+  distanceKm     Float
+  elevationGainM Int
+  elevationLossM Int
+  routePoints    Json // [{ lat: number, lng: number, label?: string }]
+  waypoints      Json        @default("[]") // [{ name, lat, lng, description }]
+}
+
+// ---------------------------------------------------------------------------
+// Hikes
+// ---------------------------------------------------------------------------
+
+model Hike {
+  id              String      @id @default(cuid())
+  destinationId   String
+  destination     Destination @relation(fields: [destinationId], references: [id])
+  hostId          String
+  host            User        @relation("HikeHost", fields: [hostId], references: [id])
+  title           String
+  description     String
+  date            DateTime
+  startTime       String
+  meetingPoint    String
+  difficulty      String
+  durationHours   Int
+  maxParticipants Int
+  price           Int         @default(0) // NPR, 0 = free
+  currency        String      @default("NPR")
+  images          Json        @default("[]")
+  requirements    Json        @default("[]")
+  equipment       Json        @default("[]")
+  safetyNotes     String      @default("")
+  status          String      @default("UPCOMING") // UPCOMING | FULL | COMPLETED | CANCELLED
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  participants   HikeParticipant[]
+  bookings       Booking[]
+  conversation   Conversation?
+  adventureGroup AdventureGroup?
+
+  @@index([destinationId])
+  @@index([date])
+  @@index([status])
+}
+
+model HikeParticipant {
+  id       String   @id @default(cuid())
+  hikeId   String
+  hike     Hike     @relation(fields: [hikeId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status   String   @default("JOINED") // JOINED | WAITLISTED | LEFT
+  joinedAt DateTime @default(now())
+
+  @@unique([hikeId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Random Adventure Matching
+// ---------------------------------------------------------------------------
+
+model AdventureMatch {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destinationId   String?
+  preferredDate   DateTime
+  difficulty      String
+  experienceLevel String
+  ageRangeMin     Int?
+  ageRangeMax     Int?
+  groupSizePref   Int      @default(4)
+  interests       Json     @default("[]")
+  status          String   @default("ACTIVE") // ACTIVE | CLOSED
+  createdAt       DateTime @default(now())
+
+  @@index([status])
+  @@index([destinationId])
+}
+
+model AdventureGroup {
+  id            String   @id @default(cuid())
+  destinationId String?
+  hikeId        String?  @unique
+  hike          Hike?    @relation(fields: [hikeId], references: [id])
+  date          DateTime
+  organizerId   String
+  organizer     User     @relation("GroupOrganizer", fields: [organizerId], references: [id])
+  status        String   @default("FORMING") // FORMING | CONFIRMED | COMPLETED | CANCELLED
+  createdAt     DateTime @default(now())
+
+  members      AdventureGroupMember[]
+  conversation Conversation?
+}
+
+model AdventureGroupMember {
+  id       String         @id @default(cuid())
+  groupId  String
+  group    AdventureGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String         @default("MEMBER") // ORGANIZER | MEMBER
+  status   String         @default("INVITED") // INVITED | ACCEPTED | DECLINED
+  joinedAt DateTime       @default(now())
+
+  @@unique([groupId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id               String          @id @default(cuid())
+  type             String          @default("DIRECT") // DIRECT | GROUP | GUIDE
+  hikeId           String?         @unique
+  hike             Hike?           @relation(fields: [hikeId], references: [id])
+  adventureGroupId String?         @unique
+  adventureGroup   AdventureGroup? @relation(fields: [adventureGroupId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Bookings & Payments
+// ---------------------------------------------------------------------------
+
+model Booking {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  hikeId         String?
+  hike           Hike?         @relation(fields: [hikeId], references: [id])
+  guideProfileId String?
+  guideProfile   GuideProfile? @relation(fields: [guideProfileId], references: [id])
+  numberOfPeople Int           @default(1)
+  unitPrice      Int
+  totalPrice     Int
+  currency       String        @default("NPR")
+  status         String        @default("PENDING") // PENDING | CONFIRMED | CANCELLED | COMPLETED | REFUNDED
+  bookingDate    DateTime      @default(now())
+  tripDate       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  payment Payment?
+  review  Review?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  bookingId      String   @unique
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider       String // MOCK | KHALTI | ESEWA
+  amount         Int
+  currency       String   @default("NPR")
+  status         String   @default("PENDING") // PENDING | SUCCESS | FAILED | REFUNDED
+  transactionRef String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Reviews, Favorites, Notifications, Safety
+// ---------------------------------------------------------------------------
+
+model Review {
+  id             String   @id @default(cuid())
+  authorId       String
+  author         User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetType     String // GUIDE | HIKER | TRIP
+  targetUserId   String?
+  guideProfileId String?
+  bookingId      String?  @unique
+  booking        Booking? @relation(fields: [bookingId], references: [id])
+  hikeId         String?
+  rating         Int
+  comment        String
+  createdAt      DateTime @default(now())
+
+  @@unique([authorId, targetType, targetUserId, hikeId])
+  @@index([targetUserId])
+  @@index([guideProfileId])
+}
+
+model Favorite {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String // DESTINATION | GUIDE | HIKE
+  destinationId  String?
+  guideProfileId String?
+  hikeId         String?
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, type, destinationId, guideProfileId, hikeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // NEW_MESSAGE | HIKE_INVITATION | INVITATION_ACCEPTED | BOOKING_CONFIRMED | BOOKING_CANCELLED | NEW_REVIEW | GUIDE_VERIFICATION_RESULT | ADVENTURE_MATCH | HIKE_REMINDER
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model Report {
+  id           String   @id @default(cuid())
+  reporterId   String
+  reporter     User     @relation("Reporter", fields: [reporterId], references: [id])
+  targetType   String // USER | HIKE | GUIDE | REVIEW
+  targetUserId String?
+  targetHikeId String?
+  category     String // HARASSMENT | FAKE_PROFILE | UNSAFE_BEHAVIOR | SCAM | INAPPROPRIATE_CONTENT | OTHER
+  description  String
+  status       String   @default("PENDING") // PENDING | REVIEWED | RESOLVED | DISMISSED
+  reviewedById String?
+  reviewNote   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model Availability {
+  id             String       @id @default(cuid())
+  guideProfileId String
+  guideProfile   GuideProfile @relation(fields: [guideProfileId], references: [id], onDelete: Cascade)
+  date           DateTime
+  isAvailable    Boolean      @default(true)
+  note           String?
+
+  @@unique([guideProfileId, date])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+}

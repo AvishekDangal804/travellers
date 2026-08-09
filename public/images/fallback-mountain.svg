@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eef2ee"/>
+      <stop offset="100%" stop-color="#cfe0d8"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#sky)"/>
+  <polygon points="0,380 180,180 260,300 380,120 520,340 620,220 800,380 800,500 0,500" fill="#3f5a4a"/>
+  <polygon points="180,180 220,240 140,240" fill="#f5f5f0"/>
+  <polygon points="380,120 420,190 340,190" fill="#f5f5f0"/>
+  <polygon points="620,220 650,270 590,270" fill="#f5f5f0"/>
+  <rect width="800" height="500" fill="#1f2d24" opacity="0.04"/>
+  <text x="400" y="460" font-family="Georgia, serif" font-size="20" fill="#5c6b60" text-anchor="middle">TrailLink Nepal</text>
+</svg>
