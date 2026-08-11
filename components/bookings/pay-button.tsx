@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function PayButton({ bookingId }: { bookingId: string }) {
+export function PayButton({ bookingId, onSuccess }: { bookingId: string; onSuccess?: () => void }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,6 +21,7 @@ export function PayButton({ bookingId }: { bookingId: string }) {
       }
       toast.success("Payment successful — booking confirmed!");
       router.refresh();
+      onSuccess?.();
     } catch {
       setSubmitting(false);
       toast.error("Something went wrong. Please try again.");

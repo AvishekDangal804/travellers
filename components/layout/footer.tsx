@@ -64,6 +64,7 @@ export function Footer() {
         <div className="mt-12 flex flex-col gap-2 border-t border-forest-800 pt-6 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} TrailLink Nepal. Built for adventurers, by adventurers.</p>
           <p>Development build — seeded demo data, mock payments.</p>
+          <p>Trail photographs: Wikimedia Commons contributors.</p>
         </div>
       </div>
     </footer>

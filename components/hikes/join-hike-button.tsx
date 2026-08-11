@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { openPanel } from "@/lib/panel-nav";
 import type { HikeParticipantStatus } from "@/types/enums";
 
 export function JoinHikeButton({
@@ -23,7 +24,7 @@ export function JoinHikeButton({
 
   function join() {
     if (!session?.user) {
-      router.push(`/login?callbackUrl=/hikes/${hikeId}`);
+      openPanel(router, { view: "login", then: { view: "hike", id: hikeId } });
       return;
     }
     startTransition(async () => {

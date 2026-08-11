@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { openPanel } from "@/lib/panel-nav";
 import { cn } from "@/lib/utils";
 import type { FavoriteType } from "@/types/enums";
 
@@ -29,7 +30,7 @@ export function FavoriteButton({
 
   function toggle() {
     if (!session?.user) {
-      router.push("/login");
+      openPanel(router, { view: "login" });
       return;
     }
     startTransition(async () => {

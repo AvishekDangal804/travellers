@@ -80,8 +80,9 @@
   --color-danger-500: var(--color-danger-500);
   --color-danger-100: var(--color-danger-100);
 
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-archivo);
   --font-display: var(--font-playfair);
+  --font-narrow: var(--font-archivo-narrow);
 }
 
 body {
@@ -92,6 +93,10 @@ body {
 
 .font-display {
   font-family: var(--font-display), Georgia, serif;
+}
+
+.font-narrow {
+  font-family: var(--font-narrow), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 ::selection {

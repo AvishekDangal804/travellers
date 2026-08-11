@@ -1,21 +1,31 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Archivo, Archivo_Narrow, Playfair_Display } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { PanelHost } from "@/components/shell/panel-host";
 
-const inter = Inter({
-  variable: "--font-inter",
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const archivoNarrow = Archivo_Narrow({
+  variable: "--font-archivo-narrow",
+  subsets: ["latin"],
+  weight: ["700"],
   display: "swap",
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -42,13 +52,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${archivo.variable} ${archivoNarrow.variable} ${playfair.variable} h-full antialiased`}
+    >
       <body className="flex min-h-full flex-col bg-stone-50 pb-16 lg:pb-0">
         <AuthProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />
           <MobileNav />
+          <PanelHost />
         </AuthProvider>
         <Toaster position="top-center" richColors closeButton />
       </body>

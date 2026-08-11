@@ -4,11 +4,33 @@ import { requireUser } from "@/lib/auth-helpers";
 import { withApiErrors } from "@/lib/api-utils";
 import { toggleFavoriteSchema } from "@/lib/validation/favorite";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   return withApiErrors(async () => {
     const user = await requireUser();
     const favorites = await prisma.favorite.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
-    return NextResponse.json(favorites);
+
+    // Bare favorite rows (id/type/resourceId) are enough for FavoriteButton's
+    // initialFavorited check; ?hydrate=1 additionally resolves each resource
+    // for a favorites list view.
+    if (req.nextUrl.searchParams.get("hydrate") !== "1") {
+      return NextResponse.json(favorites);
+    }
+
+    const destinationIds = favorites.filter((f) => f.type === "DESTINATION").map((f) => f.destinationId!).filter(Boolean);
+    const guideProfileIds = favorites.filter((f) => f.type === "GUIDE").map((f) => f.guideProfileId!).filter(Boolean);
+    const hikeIds = favorites.filter((f) => f.type === "HIKE").map((f) => f.hikeId!).filter(Boolean);
+
+    const [destinations, guides, hikes] = await Promise.all([
+      destinationIds.length ? prisma.destination.findMany({ where: { id: { in: destinationIds } } }) : Promise.resolve([]),
+      guideProfileIds.length
+        ? prisma.guideProfile.findMany({ where: { id: { in: guideProfileIds } }, include: { user: { select: { name: true, username: true } } } })
+        : Promise.resolve([]),
+      hikeIds.length
+        ? prisma.hike.findMany({ where: { id: { in: hikeIds } }, include: { destination: { select: { name: true } } } })
+        : Promise.resolve([]),
+    ]);
+
+    return NextResponse.json({ destinations, guides, hikes });
   });
 }
 

@@ -36,9 +36,9 @@ declare module "next-auth/jwt" {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  // No pages.signIn override: the app never relies on NextAuth's own hosted
+  // sign-in page — the Credentials provider is always driven through the
+  // login panel with `redirect: false`, and `/login` is no longer a route.
   trustHost: true,
   providers: [
     Credentials({
